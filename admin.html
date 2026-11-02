@@ -80,7 +80,7 @@
 
   .field { display: grid; gap: 4px; }
   .field > span { font-size: .85rem; color: var(--muted); }
-  .field input[type="text"], .field input[type="number"], .field textarea, .opt-row textarea {
+  .field input[type="text"], .field input[type="number"], .field select, .field textarea, .opt-row textarea {
     width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--bg);
   }
   .field textarea, .opt-row textarea { resize: vertical; min-height: 40px; line-height: 1.5; }
@@ -197,7 +197,7 @@
         <option value="desktop">電腦</option>
       </select>
     </div>
-    <div class="frame-box"><iframe id="frame" class="phone" src="index.html?preview=1&v=3" title="預覽"></iframe></div>
+    <div class="frame-box"><iframe id="frame" class="phone" src="index.html?preview=1&v=4" title="預覽"></iframe></div>
   </aside>
 </div>
 
@@ -208,8 +208,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=3"></script>
-<script src="default-config.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="default-config.js?v=4"></script>
 <script>
 const LETTERS = "ABCDEFGHIJ";
 const ONLINE = !SCRIPT_URL.startsWith("PASTE_");
@@ -365,10 +365,17 @@ function renderEditor() {
     </div>
     ${(cfg.info.selects || []).map((s, i) => `
       <div class="item">
-        <div class="item-head"><strong>${esc(s.key)}（下拉選單）</strong></div>
+        <div class="item-head"><strong>${esc(s.key)}</strong></div>
         ${field(`顯示${esc(s.key)}欄位`, `info.selects.${i}.show`, "check")}
+        <label class="field"><span>填寫方式</span>
+          <select data-path="info.selects.${i}.type" data-type="text" data-rerender>
+            <option value="select" ${s.type !== "text" ? "selected" : ""}>下拉選單</option>
+            <option value="text" ${s.type === "text" ? "selected" : ""}>自行輸入</option>
+          </select></label>
         ${field("欄位標題", `info.selects.${i}.label`)}
-        ${field("選項", `info.selects.${i}.options`, "lines", "一行一個選項，可以自由新增、刪除、調整順序。")}
+        ${s.type === "text"
+          ? field("提示字", `info.selects.${i}.placeholder`)
+          : field("選項", `info.selects.${i}.options`, "lines", "一行一個選項，可以自由新增、刪除、調整順序。")}
       </div>`).join("")}`);
 
   html += section("❓ 測驗題目", `
@@ -480,6 +487,7 @@ $("editor").addEventListener("input", e => {
   setDirty(true);
   if (/^(results|questions)\./.test(el.dataset.path)) updateScoreCheck();
   if (/^results\.\d+\.(name|emoji|min)$/.test(el.dataset.path)) updateViewOptions();
+  if ("rerender" in el.dataset) renderEditor();
   pushPreviewSoon();
 });
 

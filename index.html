@@ -138,8 +138,8 @@
   <footer id="footer"></footer>
 </div>
 
-<script src="config.js?v=3"></script>
-<script src="default-config.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="default-config.js?v=4"></script>
 <script>
 const PREVIEW = new URLSearchParams(location.search).has("preview");
 const LETTERS = "ABCDEFGHIJ";
@@ -188,11 +188,14 @@ function render(config) {
         <input type="text" id="name" autocomplete="name" maxlength="30" placeholder="${esc(C.info.namePlaceholder)}">
         <p class="err">請填寫${esc(C.info.nameLabel.replace(/^你的/, ""))}</p>`)}
       ${shownSelects().map((s, i) => qCard(`sel${i}`, `${head(s.label)}
+        ${s.type === "text" ? `
+        <input type="text" id="sel${i}" maxlength="30" placeholder="${esc(s.placeholder)}">
+        <p class="err">請填寫${esc(s.label.replace(/^你的/, ""))}</p>` : `
         <select id="sel${i}">
           <option value="" selected disabled>請選擇</option>
-          ${s.options.map(o => `<option>${esc(o)}</option>`).join("")}
+          ${(s.options || []).map(o => `<option>${esc(o)}</option>`).join("")}
         </select>
-        <p class="err">請選擇${esc(s.label.replace(/^你的/, ""))}</p>`)).join("")}`;
+        <p class="err">請選擇${esc(s.label.replace(/^你的/, ""))}</p>`}`)).join("")}`;
 
   C.questions.forEach(q => {
     html += `<div class="card" data-field="${q.id}" role="radiogroup" aria-labelledby="${q.id}-title">

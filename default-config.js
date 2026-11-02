@@ -21,11 +21,12 @@ const DEFAULT_CONFIG = {
   info: {
     nameLabel: "你的姓名",
     namePlaceholder: "請輸入姓名",
-    // 下拉選單欄位：key 是試算表的欄位名稱，options 可以在後台增減
+    // 其他基本資料欄位：key 是試算表的欄位名稱
+    // type: "select" 是下拉選單（用 options），"text" 是自行輸入（用 placeholder）
     selects: [
-      { key: "社團", show: true, label: "你的社團", options: ["社團 A", "社團 B", "其他"] },
-      { key: "系所", show: true, label: "你的系所", options: ["電機系", "資工系", "電子所", "智能所", "其他"] },
-      { key: "年級", show: true, label: "你的年級", options: ["大一", "大二", "大三", "大四", "碩一", "碩二", "博士班", "其他"] }
+      { key: "社團", show: true, type: "select", label: "你的社團", options: ["社團 A", "社團 B", "其他"], placeholder: "請輸入社團名稱" },
+      { key: "系所", show: true, type: "text", label: "你的系所", options: [], placeholder: "例如：電機系、智能所" },
+      { key: "年級", show: true, type: "select", label: "你的年級", options: ["大一", "大二", "大三", "大四", "碩一", "碩二", "博士班", "其他"], placeholder: "請輸入年級" }
     ]
   },
   questions: [
