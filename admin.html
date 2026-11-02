@@ -197,7 +197,7 @@
         <option value="desktop">電腦</option>
       </select>
     </div>
-    <div class="frame-box"><iframe id="frame" class="phone" src="index.html?preview=1" title="預覽"></iframe></div>
+    <div class="frame-box"><iframe id="frame" class="phone" src="index.html?preview=1&v=3" title="預覽"></iframe></div>
   </aside>
 </div>
 
@@ -208,8 +208,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="config.js"></script>
-<script src="default-config.js"></script>
+<script src="config.js?v=3"></script>
+<script src="default-config.js?v=3"></script>
 <script>
 const LETTERS = "ABCDEFGHIJ";
 const ONLINE = !SCRIPT_URL.startsWith("PASTE_");
@@ -363,7 +363,7 @@ function renderEditor() {
       ${field("姓名欄標題", "info.nameLabel")}
       ${field("姓名欄提示字", "info.namePlaceholder")}
     </div>
-    ${cfg.info.selects.map((s, i) => `
+    ${(cfg.info.selects || []).map((s, i) => `
       <div class="item">
         <div class="item-head"><strong>${esc(s.key)}（下拉選單）</strong></div>
         ${field(`顯示${esc(s.key)}欄位`, `info.selects.${i}.show`, "check")}
