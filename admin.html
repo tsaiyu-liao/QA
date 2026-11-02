@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>課前QA 後台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f1ec; --paper: #ffffff; --ink: #2b2a26; --muted: #6f6a5f; --line: #e0dbd0;
+    --accent: #5b7a5a; --accent-soft: #e6eee3; --warn: #a4483a; --warn-soft: #f6e4e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1a18; --paper: #252522; --ink: #ece7dc; --muted: #a39d90; --line: #3a3934;
+      --accent: #8fb08c; --accent-soft: #2f3a2e; --warn: #e08a7c; --warn-soft: #3a2723;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1a18; --paper: #252522; --ink: #ece7dc; --muted: #a39d90; --line: #3a3934;
+    --accent: #8fb08c; --accent-soft: #2f3a2e; --warn: #e08a7c; --warn-soft: #3a2723;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.6;
+    font-family: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button {
+    cursor: pointer; border: 1px solid var(--line); background: var(--paper);
+    border-radius: 8px; padding: 6px 12px; white-space: nowrap;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--paper); font-weight: 700; }
+  button.danger { color: var(--warn); }
+  button.small { padding: 2px 8px; font-size: .85rem; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ===== 頂部 ===== */
+  .topbar {
+    position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px;
+  }
+  .topbar h1 { font-family: "Noto Serif TC", serif; font-size: 1.1rem; margin: 0; }
+  .save-state { font-size: .85rem; color: var(--muted); }
+  .save-state.dirty { color: var(--warn); }
+  .topbar .spacer { flex: 1; }
+  .topbar .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* ===== 版面：左邊編輯、右邊預覽 ===== */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .preview-col { position: sticky; top: 70px; align-self: start; }
+  @media (max-width: 900px) { .preview-col { position: static; } }
+  .preview-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: .9rem; }
+  .preview-bar select { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--paper); }
+  .frame-box { display: flex; justify-content: center; }
+  iframe {
+    width: 100%; height: calc(100vh - 130px); min-height: 480px;
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
+  }
+  iframe.phone { width: 390px; max-width: 100%; }
+
+  /* ===== 編輯區 ===== */
+  details.section {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    margin-bottom: 12px; overflow: hidden;
+  }
+  details.section > summary {
+    cursor: pointer; padding: 12px 16px; font-weight: 700; list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  details.section > summary::after { content: "▾"; color: var(--muted); }
+  details.section:not([open]) > summary::after { content: "▸"; }
+  .section-body { padding: 0 16px 16px; display: grid; gap: 12px; }
+  .help { font-size: .82rem; color: var(--muted); margin: 0; }
+
+  .field { display: grid; gap: 4px; }
+  .field > span { font-size: .85rem; color: var(--muted); }
+  .field input[type="text"], .field input[type="number"], .field textarea, .opt-row textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--bg);
+  }
+  .field textarea, .opt-row textarea { resize: vertical; min-height: 40px; line-height: 1.5; }
+  .field input:focus, .field textarea:focus, .opt-row textarea:focus, .opt-row input:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .field.check { display: flex; align-items: center; gap: 8px; }
+  .field.check > span { color: var(--ink); font-size: .95rem; }
+  .field.color { display: flex; align-items: center; gap: 8px; }
+  .field.color input { width: 36px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; }
+  .field.color > span { color: var(--ink); font-size: .88rem; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px 12px; }
+  .subhead { font-weight: 700; font-size: .9rem; margin: 6px 0 0; }
+
+  .item { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; background: var(--bg); }
+  .item-head { display: flex; align-items: center; gap: 6px; }
+  .item-head strong { flex: 1; }
+  .opt-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 64px 32px; gap: 6px; align-items: start; }
+  .opt-row .letter {
+    width: 26px; height: 26px; margin-top: 4px; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent);
+    display: grid; place-items: center; font-size: .85rem;
+  }
+  .opt-row input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 7px 6px; background: var(--paper); text-align: center; }
+  .opt-row textarea { background: var(--paper); }
+  .opt-head { display: grid; grid-template-columns: 28px minmax(0, 1fr) 64px 32px; gap: 6px; font-size: .78rem; color: var(--muted); }
+
+  .check-box { border-radius: 10px; padding: 10px 12px; font-size: .9rem; }
+  .check-box.ok { background: var(--accent-soft); }
+  .check-box.bad { background: var(--warn-soft); color: var(--warn); }
+
+  /* ===== 登入 ===== */
+  .login {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: grid; place-items: center; padding: 16px;
+  }
+  .login form {
+    width: 100%; max-width: 360px; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; padding: 24px; display: grid; gap: 12px; text-align: center;
+  }
+  .login h2 { font-family: "Noto Serif TC", serif; margin: 0; }
+  .login input { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg); width: 100%; }
+  .login .msg { color: var(--warn); font-size: .88rem; min-height: 1.4em; margin: 0; }
+  .login .offline { font-size: .85rem; }
+
+  /* ===== 回覆 ===== */
+  dialog {
+    width: min(1000px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+    border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--paper); color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .35); }
+  .dlg-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--paper); }
+  .dlg-head h2 { margin: 0; font-size: 1.05rem; flex: 1; }
+  .dlg-body { padding: 16px; display: grid; gap: 16px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat { background: var(--accent-soft); border-radius: 10px; padding: 6px 12px; font-size: .9rem; }
+  .stat b { color: var(--accent); }
+  .asks { margin: 0; padding-left: 1.2em; }
+  .asks li { margin-bottom: 6px; }
+  .asks small { color: var(--muted); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; font-size: .85rem; min-width: 100%; }
+  th, td { border-bottom: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--bg); position: sticky; top: 0; white-space: nowrap; }
+  td { min-width: 80px; max-width: 280px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20;
+    background: var(--ink); color: var(--paper); border-radius: 99px; padding: 8px 18px; font-size: .9rem;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="login" id="login">
+  <form id="loginForm">
+    <h2>課前QA 後台</h2>
+    <p class="help">輸入後台密碼（Apps Script 指令碼屬性中的 ADMIN_PASSWORD）</p>
+    <input type="password" id="pw" placeholder="密碼" autocomplete="current-password">
+    <p class="msg" id="loginMsg"></p>
+    <button class="primary" type="submit" id="loginBtn">登入</button>
+    <p class="offline help" id="offlineNote" hidden>
+      還沒設定 config.js 的 SCRIPT_URL，<br>
+      <button type="button" id="offlineBtn" class="small">先用離線模式編輯</button><br>
+      （離線模式不能發布，只能匯出設定檔）
+    </p>
+  </form>
+</div>
+
+<div class="topbar">
+  <h1>課前QA 後台</h1>
+  <span class="save-state" id="saveState">已是最新</span>
+  <span class="spacer"></span>
+  <div class="btns">
+    <button id="respBtn">📋 查看回覆</button>
+    <button id="exportBtn" title="下載目前的設定檔備份">匯出</button>
+    <button id="importBtn" title="從備份檔載入設定">匯入</button>
+    <button id="resetBtn" class="danger">還原預設</button>
+    <button id="saveBtn" class="primary">儲存並發布</button>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+</div>
+
+<div class="layout">
+  <main id="editor"></main>
+  <aside class="preview-col">
+    <div class="preview-bar">
+      <strong>即時預覽</strong>
+      <select id="viewSel" aria-label="預覽頁面"></select>
+      <select id="deviceSel" aria-label="預覽尺寸">
+        <option value="phone">手機</option>
+        <option value="desktop">電腦</option>
+      </select>
+    </div>
+    <div class="frame-box"><iframe id="frame" class="phone" src="index.html?preview=1" title="預覽"></iframe></div>
+  </aside>
+</div>
+
+<dialog id="respDlg">
+  <div class="dlg-head"><h2>問卷回覆</h2><button id="respReload" class="small">重新整理</button><button id="respClose" class="small">關閉</button></div>
+  <div class="dlg-body" id="respBody"></div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="default-config.js"></script>
+<script>
+const LETTERS = "ABCDEFGHIJ";
+const ONLINE = !SCRIPT_URL.startsWith("PASTE_");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const $ = id => document.getElementById(id);
+
+let cfg = clone(DEFAULT_CONFIG);
+let password = "";
+let dirty = false;
+
+/* ===== 和 Apps Script 溝通 ===== */
+async function api(action, extra = {}) {
+  const res = await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, password, ...extra })
+  });
+  const out = await res.json();
+  if (!out.ok) throw new Error(out.error || "發生錯誤");
+  return out;
+}
+
+function toast(text) {
+  const t = $("toast");
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function setDirty(v) {
+  dirty = v;
+  $("saveState").textContent = v ? "● 有尚未發布的修改" : (ONLINE ? "已是最新" : "離線模式");
+  $("saveState").classList.toggle("dirty", v);
+}
+
+/* ===== 登入 ===== */
+if (!ONLINE) $("offlineNote").hidden = false;
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!ONLINE) { $("loginMsg").textContent = "請先在 config.js 填入 SCRIPT_URL"; return; }
+  password = $("pw").value;
+  $("loginBtn").disabled = true;
+  $("loginMsg").textContent = "";
+  try {
+    await api("login");
+    const res = await fetch(SCRIPT_URL + "?action=config");
+    const out = await res.json();
+    cfg = withDefaults(out.config);
+    $("login").remove();
+    start();
+  } catch (err) {
+    $("loginMsg").textContent = err.message;
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+});
+$("offlineBtn").addEventListener("click", () => {
+  $("login").remove();
+  $("saveBtn").disabled = true;
+  $("respBtn").disabled = true;
+  $("saveBtn").title = $("respBtn").title = "離線模式無法使用";
+  start();
+});
+
+function start() {
+  renderEditor();
+  setDirty(false);
+  pushPreview();
+}
+
+/* ===== 編輯欄位 ===== */
+// path 例如 "header.title"、"questions.0.options.2.score"
+const getPath = p => p.split(".").reduce((o, k) => o?.[k], cfg);
+function setPath(p, v) {
+  const keys = p.split(".");
+  const last = keys.pop();
+  keys.reduce((o, k) => o[k], cfg)[last] = v;
+}
+
+function field(label, path, type = "text", help = "") {
+  const v = getPath(path);
+  const attr = `data-path="${path}" data-type="${type}"`;
+  const h = help ? `<p class="help">${help}</p>` : "";
+  switch (type) {
+    case "check":
+      return `<label class="field check"><input type="checkbox" ${attr} ${v ? "checked" : ""}><span>${label}</span></label>`;
+    case "color":
+      return `<label class="field color"><input type="color" ${attr} value="${esc(v)}"><span>${label}</span></label>`;
+    case "number":
+      return `<label class="field"><span>${label}</span><input type="number" ${attr} value="${esc(v)}">${h}</label>`;
+    case "area":
+      return `<label class="field"><span>${label}</span><textarea ${attr} rows="3">${esc(v)}</textarea>${h}</label>`;
+    case "lines":   // 陣列，一行一項
+      return `<label class="field"><span>${label}</span><textarea ${attr} rows="4">${esc((v || []).join("\n"))}</textarea>${h}</label>`;
+    case "paras":   // 陣列，空一行分段
+      return `<label class="field"><span>${label}</span><textarea ${attr} rows="5">${esc((v || []).join("\n\n"))}</textarea>${h}</label>`;
+    default:
+      return `<label class="field"><span>${label}</span><input type="text" ${attr} value="${esc(v)}">${h}</label>`;
+  }
+}
+
+function readInput(el) {
+  switch (el.dataset.type) {
+    case "check": return el.checked;
+    case "number": return el.value === "" ? 0 : Number(el.value);
+    case "lines": return el.value.split("\n").map(s => s.trim()).filter(Boolean);
+    case "paras": return el.value.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+    default: return el.value;
+  }
+}
+
+const COLOR_NAMES = {
+  bg: "背景", paper: "卡片", ink: "文字", muted: "次要文字",
+  line: "框線", accent: "主色", accentSoft: "主色淡底", warn: "錯誤提示"
+};
+const colorFields = mode => `<div class="grid2">${Object.keys(COLOR_NAMES)
+  .map(k => field(COLOR_NAMES[k], `theme.${mode}.${k}`, "color")).join("")}</div>`;
+
+function section(title, body, open = false) {
+  return `<details class="section"${open ? " open" : ""}><summary>${title}</summary><div class="section-body">${body}</div></details>`;
+}
+
+function renderEditor() {
+  const openState = [...document.querySelectorAll("#editor details")].map(d => d.open);
+  const t = "theme";
+  let html = "";
+
+  html += section("🎨 外觀排版", `
+    <div class="grid3">
+      ${field("文字大小（px）", `${t}.fontSize`, "number")}
+      ${field("卡片圓角（px）", `${t}.radius`, "number")}
+      ${field("內容寬度（px）", `${t}.width`, "number")}
+    </div>
+    ${field("顯示頁首圓形圖示", `${t}.showEnso`, "check")}
+    <p class="subhead">淺色模式配色</p>
+    ${colorFields("light")}
+    <p class="subhead">深色模式配色</p>
+    <p class="help">手機或電腦設定成深色模式時使用。</p>
+    ${colorFields("dark")}`);
+
+  html += section("📝 開頭文字", `
+    ${field("小標", "header.kicker")}
+    ${field("大標題", "header.title")}
+    ${field("說明文字", "header.intro", "area")}
+    ${field("提示框", "header.hint", "area", "留空就不顯示。用 **文字** 可以變粗體。")}`);
+
+  html += section("👤 基本資料", `
+    <div class="grid2">
+      ${field("姓名欄標題", "info.nameLabel")}
+      ${field("姓名欄提示字", "info.namePlaceholder")}
+    </div>
+    ${field("顯示社團欄位", "info.showClub", "check")}
+    <div class="grid2">
+      ${field("社團欄標題", "info.clubLabel")}
+      ${field("社團欄提示字", "info.clubPlaceholder")}
+    </div>`);
+
+  html += section("❓ 測驗題目", `
+    <p class="help">每個選項的分數越高，代表自我覺察越好。題號會自動排列。</p>
+    ${cfg.questions.map((q, i) => `
+      <div class="item">
+        <div class="item-head">
+          <strong>第 ${i + 1} 題</strong>
+          <button class="small" data-act="upQ" data-i="${i}" ${i === 0 ? "disabled" : ""} title="上移">↑</button>
+          <button class="small" data-act="downQ" data-i="${i}" ${i === cfg.questions.length - 1 ? "disabled" : ""} title="下移">↓</button>
+          <button class="small danger" data-act="delQ" data-i="${i}">刪除</button>
+        </div>
+        ${field("標籤", `questions.${i}.tag`)}
+        ${field("題目", `questions.${i}.title`, "area")}
+        <div class="opt-head"><span></span><span>選項文字</span><span>分數</span><span></span></div>
+        ${q.options.map((o, j) => `
+          <div class="opt-row">
+            <span class="letter">${LETTERS[j]}</span>
+            <textarea rows="2" data-path="questions.${i}.options.${j}.desc" data-type="text" aria-label="選項 ${LETTERS[j]}">${esc(o.desc)}</textarea>
+            <input type="number" min="0" data-path="questions.${i}.options.${j}.score" data-type="number" value="${esc(o.score)}" aria-label="選項 ${LETTERS[j]} 分數">
+            <button class="small danger" data-act="delOpt" data-i="${i}" data-j="${j}" title="刪除選項" ${q.options.length <= 2 ? "disabled" : ""}>✕</button>
+          </div>`).join("")}
+        <div><button class="small" data-act="addOpt" data-i="${i}" ${q.options.length >= LETTERS.length ? "disabled" : ""}>＋ 新增選項</button></div>
+      </div>`).join("")}
+    <div><button data-act="addQ">＋ 新增題目</button></div>`, true);
+
+  html += section("💬 想問講師", `
+    ${field("顯示這一題", "ask.show", "check")}
+    ${field("標籤", "ask.tag")}
+    ${field("題目", "ask.title", "area")}
+    ${field("提示字", "ask.placeholder")}
+    ${field("送出按鈕文字", "submitText")}`);
+
+  html += section("🔮 測驗結果類型", `
+    <div id="scoreCheck"></div>
+    ${cfg.results.map((r, i) => `
+      <div class="item">
+        <div class="item-head">
+          <strong>${esc(r.emoji)} ${esc(r.name) || "（未命名）"}</strong>
+          <button class="small" data-act="viewRes" data-i="${i}">預覽</button>
+          <button class="small danger" data-act="delRes" data-i="${i}" ${cfg.results.length <= 1 ? "disabled" : ""}>刪除</button>
+        </div>
+        <div class="grid3">
+          ${field("最低分", `results.${i}.min`, "number")}
+          ${field("最高分", `results.${i}.max`, "number")}
+          ${field("圖示", `results.${i}.emoji`)}
+        </div>
+        ${field("類型名稱", `results.${i}.name`)}
+        ${field("你缺的是", `results.${i}.lack`)}
+        ${field("說明", `results.${i}.body`, "paras", "空一行就會分成新的段落。")}
+        ${field("小練習標題", `results.${i}.practiceTitle`)}
+        ${field("小練習內容", `results.${i}.practice`, "area")}
+        ${field("小提醒（👉）", `results.${i}.tip`, "area")}
+      </div>`).join("")}
+    <div><button data-act="addRes">＋ 新增類型</button></div>`);
+
+  html += section("📄 結果頁其他文字", `
+    ${field("開頭", "resultText.intro", "text", "{name} 會換成填答者的名字。")}
+    ${field("顯示程度進度條", "resultText.showMeter", "check")}
+    <div class="grid2">
+      ${field("進度條左邊文字", "resultText.meterLeft")}
+      ${field("進度條右邊文字", "resultText.meterRight")}
+    </div>
+    ${field("「缺少」區塊標題", "resultText.lackLabel")}
+    ${field("「小練習」區塊標題", "resultText.practiceLabel")}
+    ${field("結尾感謝文字", "resultText.thanks")}
+    <p class="subhead">腹式呼吸教學</p>
+    ${field("顯示腹式呼吸教學", "breath.show", "check")}
+    ${field("標題", "breath.title")}
+    ${field("步驟", "breath.steps", "lines", "一行一個步驟。")}
+    ${field("備註", "breath.note", "area")}
+    <p class="subhead">頁尾</p>
+    ${field("頁尾文字", "footer")}`);
+
+  $("editor").innerHTML = html;
+  document.querySelectorAll("#editor details").forEach((d, i) => {
+    if (openState[i] !== undefined) d.open = openState[i];
+  });
+  updateScoreCheck();
+  updateViewOptions();
+}
+
+/* 檢查每個可能的總分都對應到剛好一種類型 */
+function updateScoreCheck() {
+  const box = $("scoreCheck");
+  if (!box) return;
+  const scores = q => q.options.map(o => Number(o.score) || 0);
+  const lo = cfg.questions.reduce((s, q) => s + Math.min(...scores(q)), 0);
+  const hi = cfg.questions.reduce((s, q) => s + Math.max(...scores(q)), 0);
+  const gaps = [], overlaps = [];
+  for (let t = lo; t <= hi; t++) {
+    const n = cfg.results.filter(r => t >= r.min && t <= r.max).length;
+    if (n === 0) gaps.push(t);
+    if (n > 1) overlaps.push(t);
+  }
+  const ok = !gaps.length && !overlaps.length;
+  box.className = "check-box " + (ok ? "ok" : "bad");
+  box.innerHTML = `可能的總分：<b>${lo}–${hi} 分</b>。` + (ok
+    ? "✓ 每個分數都剛好對應到一種類型。"
+    : (gaps.length ? `<br>⚠ 這些分數沒有對應的類型：${gaps.join("、")}` : "") +
+      (overlaps.length ? `<br>⚠ 這些分數同時屬於多種類型：${overlaps.join("、")}` : ""));
+}
+
+/* ===== 編輯事件 ===== */
+$("editor").addEventListener("input", e => {
+  const el = e.target.closest("[data-path]");
+  if (!el) return;
+  setPath(el.dataset.path, readInput(el));
+  setDirty(true);
+  if (/^(results|questions)\./.test(el.dataset.path)) updateScoreCheck();
+  if (/^results\.\d+\.(name|emoji|min)$/.test(el.dataset.path)) updateViewOptions();
+  pushPreviewSoon();
+});
+
+$("editor").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  const i = Number(b.dataset.i), j = Number(b.dataset.j);
+  const Q = cfg.questions, R = cfg.results;
+  switch (b.dataset.act) {
+    case "addQ":
+      Q.push({ id: "q" + Date.now().toString(36), tag: "", title: "新題目",
+        options: [1, 2, 3, 4].map(s => ({ desc: "", score: s })) });
+      break;
+    case "delQ":
+      if (!confirm(`確定要刪除第 ${i + 1} 題嗎？`)) return;
+      Q.splice(i, 1);
+      break;
+    case "upQ": [Q[i - 1], Q[i]] = [Q[i], Q[i - 1]]; break;
+    case "downQ": [Q[i + 1], Q[i]] = [Q[i], Q[i + 1]]; break;
+    case "addOpt": Q[i].options.push({ desc: "", score: 1 }); break;
+    case "delOpt": Q[i].options.splice(j, 1); break;
+    case "addRes": {
+      const top = Math.max(...R.map(r => Number(r.max) || 0));
+      R.push({ min: top + 1, max: top + 1, emoji: "✨", name: "新類型", lack: "", body: [], practiceTitle: "", practice: "", tip: "" });
+      break;
+    }
+    case "delRes":
+      if (!confirm(`確定要刪除「${R[i].name}」嗎？`)) return;
+      R.splice(i, 1);
+      break;
+    case "viewRes": {
+      const sorted = [...R].sort((a, b) => a.min - b.min);
+      $("viewSel").value = String(sorted.indexOf(R[i]));
+      pushPreview();
+      $("frame").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+  }
+  setDirty(true);
+  renderEditor();
+  pushPreview();
+});
+
+/* ===== 預覽 ===== */
+function updateViewOptions() {
+  const sel = $("viewSel");
+  const cur = sel.value || "-1";
+  const sorted = [...cfg.results].sort((a, b) => a.min - b.min);
+  sel.innerHTML = `<option value="-1">問卷頁</option>` +
+    sorted.map((r, i) => `<option value="${i}">結果：${esc(r.emoji)} ${esc(r.name)}</option>`).join("");
+  sel.value = Number(cur) < sorted.length ? cur : "-1";
+}
+
+function pushPreview() {
+  $("frame").contentWindow?.postMessage({ type: "preview", config: cfg, view: Number($("viewSel").value) }, "*");
+}
+let previewTimer;
+function pushPreviewSoon() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(pushPreview, 250);
+}
+window.addEventListener("message", e => { if (e.data?.type === "preview-ready") pushPreview(); });
+$("viewSel").addEventListener("change", pushPreview);
+$("deviceSel").addEventListener("change", e => $("frame").classList.toggle("phone", e.target.value === "phone"));
+
+/* ===== 儲存、匯入匯出 ===== */
+$("saveBtn").addEventListener("click", async () => {
+  const btn = $("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "發布中…";
+  try {
+    await api("saveConfig", { config: cfg });
+    setDirty(false);
+    toast("已發布！問卷網頁重新整理後就會看到新內容");
+  } catch (err) {
+    alert("發布失敗：" + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "儲存並發布";
+  }
+});
+
+$("exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `課前QA設定_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$("importBtn").addEventListener("click", () => $("importFile").click());
+$("importFile").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.questions) || !Array.isArray(data.results)) throw new Error("檔案格式不正確");
+    cfg = withDefaults(data);
+    setDirty(true);
+    renderEditor();
+    pushPreview();
+    toast("已匯入，確認沒問題後記得按「儲存並發布」");
+  } catch (err) {
+    alert("匯入失敗：" + err.message);
+  }
+});
+
+$("resetBtn").addEventListener("click", () => {
+  if (!confirm("確定要把所有內容還原成預設嗎？（按「儲存並發布」之前都還可以重新整理放棄）")) return;
+  cfg = clone(DEFAULT_CONFIG);
+  setDirty(true);
+  renderEditor();
+  pushPreview();
+});
+
+window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
+
+/* ===== 查看回覆 ===== */
+$("respBtn").addEventListener("click", () => { $("respDlg").showModal(); loadResponses(); });
+$("respClose").addEventListener("click", () => $("respDlg").close());
+$("respReload").addEventListener("click", loadResponses);
+
+async function loadResponses() {
+  const body = $("respBody");
+  body.innerHTML = `<p class="help">載入中…</p>`;
+  try {
+    const { rows } = await api("responses");
+    if (rows.length < 2) { body.innerHTML = `<p class="help">還沒有人填寫。</p>`; return; }
+    const [head, ...data] = rows;
+    const col = name => head.indexOf(name);
+    const typeCol = col("類型"), askCol = col("想問講師"), nameCol = col("姓名"), clubCol = col("社團");
+
+    const counts = {};
+    data.forEach(r => { const t = r[typeCol] || "（無）"; counts[t] = (counts[t] || 0) + 1; });
+    const asks = askCol < 0 ? [] : data.filter(r => r[askCol]);
+
+    body.innerHTML = `
+      <div class="stats">
+        <span class="stat">共 <b>${data.length}</b> 份</span>
+        ${Object.entries(counts).map(([t, n]) => `<span class="stat">${esc(t)} <b>${n}</b></span>`).join("")}
+      </div>
+      <div>
+        <p class="subhead">想問講師的問題（${asks.length}）</p>
+        ${asks.length ? `<ol class="asks">${asks.map(r =>
+          `<li>${esc(r[askCol])} <small>— ${esc(r[nameCol])}${clubCol >= 0 && r[clubCol] ? "・" + esc(r[clubCol]) : ""}</small></li>`).join("")}</ol>`
+          : `<p class="help">還沒有人提問。</p>`}
+      </div>
+      <div>
+        <p class="subhead">所有回覆</p>
+        <div class="table-wrap"><table>
+          <thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+          <tbody>${data.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+        </table></div>
+      </div>`;
+  } catch (err) {
+    body.innerHTML = `<p class="help" style="color:var(--warn)">載入失敗：${esc(err.message)}</p>`;
+  }
+}
+</script>
+</body>
+</html>
