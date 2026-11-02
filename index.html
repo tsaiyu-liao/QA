@@ -52,11 +52,18 @@
     background: var(--accent-soft); border-radius: 99px; padding: 0 10px; margin-bottom: 6px; }
   .req { color: var(--warn); margin-left: 2px; }
 
-  input[type="text"], textarea {
+  input[type="text"], select, textarea {
     width: 100%; font: inherit; color: var(--ink); background: var(--bg);
     border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
     outline: none; appearance: none;
   }
+  select {
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+    background-size: 6px 6px; background-repeat: no-repeat; padding-right: 40px;
+  }
+  select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   textarea { resize: vertical; min-height: 96px; line-height: 1.6; }
   .optional { color: var(--muted); font-size: .85rem; font-weight: 400; margin-left: 4px; }
   input[type="text"]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -180,9 +187,12 @@ function render(config) {
       ${qCard("name", `${head(C.info.nameLabel)}
         <input type="text" id="name" autocomplete="name" maxlength="30" placeholder="${esc(C.info.namePlaceholder)}">
         <p class="err">請填寫${esc(C.info.nameLabel.replace(/^你的/, ""))}</p>`)}
-      ${C.info.showClub ? qCard("club", `${head(C.info.clubLabel)}
-        <input type="text" id="club" maxlength="30" placeholder="${esc(C.info.clubPlaceholder)}">
-        <p class="err">請填寫${esc(C.info.clubLabel.replace(/^你的/, ""))}</p>`) : ""}`;
+      ${shownSelects().map((s, i) => qCard(`sel${i}`, `${head(s.label)}
+        <select id="sel${i}">
+          <option value="" selected disabled>請選擇</option>
+          ${s.options.map(o => `<option>${esc(o)}</option>`).join("")}
+        </select>
+        <p class="err">請選擇${esc(s.label.replace(/^你的/, ""))}</p>`)).join("")}`;
 
   C.questions.forEach(q => {
     html += `<div class="card" data-field="${q.id}" role="radiogroup" aria-labelledby="${q.id}-title">
@@ -272,10 +282,16 @@ function wireForm() {
 }
 
 const val = id => (document.getElementById(id)?.value || "").trim();
+const shownSelects = () => (C.info.selects || []).filter(s => s.show);
 
 function collect() {
   const form = document.getElementById("qa");
-  const data = { name: val("name"), club: val("club"), ask: val("ask"), answers: [] };
+  const data = {
+    name: val("name"),
+    info: shownSelects().map((s, i) => ({ key: s.key, value: val(`sel${i}`) })),
+    ask: val("ask"),
+    answers: []
+  };
   let total = 0;
   C.questions.forEach(q => {
     const el = form.querySelector(`input[name="${q.id}"]:checked`);
@@ -305,7 +321,7 @@ function validate(data) {
     if (!ok && !firstBad) firstBad = card;
   };
   mark("name", !!data.name);
-  if (C.info.showClub) mark("club", !!data.club);
+  data.info.forEach((f, i) => mark(`sel${i}`, !!f.value));
   data.answers.forEach(a => mark(a.id, !!a.answer));
   if (firstBad) firstBad.scrollIntoView({ behavior: "smooth", block: "center" });
   return !firstBad;
